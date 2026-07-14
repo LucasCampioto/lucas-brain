@@ -1,0 +1,22 @@
+{
+  "name": "lucas-brain-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the Lucas Brain Business OS playbooks",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start:stdio": "node src/index.stdio.js",
+    "start:http": "node src/index.http.js",
+    "dev:http": "node --watch src/index.http.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.0",
+    "chokidar": "^4.0.3",
+    "express": "^5.1.0",
+    "zod": "^3.24.2"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "lucas-brain": {
+      "command": "node",
+      "args": [
+        "C:/Users/Lucas Constantino/Documents/Projetos pessoais/lucas-brain/mcp/src/index.stdio.js"
+      ],
+      "env": {
+        "LUCAS_BRAIN_ROOT": "C:/Users/Lucas Constantino/Documents/Projetos pessoais/lucas-brain"
+      }
+    }
+  }
+}
