@@ -1,5 +1,10 @@
+import fs from "node:fs";
+import fsp from "node:fs/promises";
+import path from "node:path";
 import { loadCatalog } from "./loader.js";
 import { config } from "../config.js";
+
+const FOLDER_RE = /^\d{2} - /;
 
 /** @type {Awaited<ReturnType<typeof loadCatalog>> | null} */
 let catalog = null;
@@ -18,32 +23,22 @@ export async function reindex() {
 
 /**
  * Optional hot-reload when playbooks change.
+ * Uses native fs.watch per numbered folder (chokidar v4 dropped globs).
  * @param {(info: { playbooks: number }) => void} [onReload]
+ * @returns {Promise<{ close: () => Promise<void> } | null>}
  */
 export async function startWatcher(onReload) {
   if (!config.watch) return null;
-  const chokidar = await import("chokidar");
-  const watcher = chokidar.watch(
-    [
-      "01 - */*.md",
-      "02 - */*.md",
-      "03 - */*.md",
-      "04 - */*.md",
-      "05 - */*.md",
-      "06 - */*.md",
-      "07 - */*.md",
-      "08 - */*.md",
-      "09 - */*.md",
-      "10 - */*.md",
-      "11 - */*.md",
-      "12 - */*.md",
-    ],
-    {
-      cwd: config.brainRoot,
-      ignoreInitial: true,
-      awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
-    }
-  );
+
+  const entries = await fsp.readdir(config.brainRoot, { withFileTypes: true });
+  const folders = entries
+    .filter((e) => e.isDirectory() && FOLDER_RE.test(e.name))
+    .map((e) => e.name);
+
+  if (!folders.length) {
+    console.error("[lucas-brain] watcher: no numbered folders found");
+    return null;
+  }
 
   let timer = null;
   const schedule = () => {
@@ -58,8 +53,28 @@ export async function startWatcher(onReload) {
     }, 400);
   };
 
-  watcher.on("add", schedule);
-  watcher.on("change", schedule);
-  watcher.on("unlink", schedule);
-  return watcher;
+  /** @type {fs.FSWatcher[]} */
+  const watchers = [];
+  for (const folder of folders) {
+    const dir = path.join(config.brainRoot, folder);
+    try {
+      const w = fs.watch(dir, (_event, filename) => {
+        if (!filename || !String(filename).toLowerCase().endsWith(".md")) return;
+        schedule();
+      });
+      w.on("error", (err) => {
+        console.error(`[lucas-brain] watcher error (${folder}):`, err.message);
+      });
+      watchers.push(w);
+    } catch (err) {
+      console.error(`[lucas-brain] failed to watch ${folder}:`, err);
+    }
+  }
+
+  return {
+    close: async () => {
+      clearTimeout(timer);
+      for (const w of watchers) w.close();
+    },
+  };
 }
